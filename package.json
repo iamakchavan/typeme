@@ -2,11 +2,13 @@
   "version": "1.0.0",
   "source": "./index.html",
   "type": "module",
-  "name": "typeme-space",
-  "description": "TypeMe - A fast, interactive typing speed test with real-time feedback and WPM tracking",
+  "name": "typeme",
+  "description": "A clean, minimalist typing speed test application with real-time WPM tracking and smooth animations",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "echo 'No linting configured'"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",
