@@ -297,9 +297,44 @@ export const Desktop = (): JSX.Element => {
   };
 
   return (
-    <div className="bg-black w-full h-screen flex items-center justify-center p-8 overflow-hidden">
-      <div className="flex flex-col w-full max-w-4xl gap-16">
-        <header className="flex items-center justify-between font-['Inter'] font-normal text-white text-3xl tracking-wide">
+    <motion.div 
+      className="bg-black w-full h-screen flex items-center justify-center p-8 overflow-hidden"
+      initial={{ 
+        opacity: 0, 
+        filter: "blur(8px)",
+        scale: 1.02
+      }}
+      animate={{ 
+        opacity: 1, 
+        filter: "blur(0px)",
+        scale: 1
+      }}
+      transition={{ 
+        duration: 1.2,
+        ease: [0.25, 0.1, 0.25, 1],
+        delay: 0.1
+      }}
+    >
+      <motion.div 
+        className="flex flex-col w-full max-w-4xl gap-16"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ 
+          duration: 1,
+          ease: [0.25, 0.1, 0.25, 1],
+          delay: 0.3
+        }}
+      >
+        <motion.header 
+          className="flex items-center justify-between font-['Inter'] font-normal text-white text-3xl tracking-wide"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ 
+            duration: 0.8,
+            ease: [0.25, 0.1, 0.25, 1],
+            delay: 0.5
+          }}
+        >
           <div className="flex items-center gap-3">
             <Keyboard size={32} className="text-white/50" />
             <span>typeme</span>
@@ -311,9 +346,18 @@ export const Desktop = (): JSX.Element => {
           >
             {isSoundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
           </button>
-        </header>
+        </motion.header>
 
-        <main className="relative font-['Inter'] font-normal text-[28px] tracking-wide leading-[42px] select-none">
+        <motion.main 
+          className="relative font-['Inter'] font-normal text-[28px] tracking-wide leading-[42px] select-none"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ 
+            duration: 0.8,
+            ease: [0.25, 0.1, 0.25, 1],
+            delay: 0.7
+          }}
+        >
           <div className="overflow-hidden text-left">
             {renderText()}
           </div>
@@ -329,9 +373,18 @@ export const Desktop = (): JSX.Element => {
             autoCapitalize="off"
             spellCheck="false"
           />
-        </main>
+        </motion.main>
 
-        <footer className="flex items-center gap-12">
+        <motion.footer 
+          className="flex items-center gap-12"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ 
+            duration: 0.8,
+            ease: [0.25, 0.1, 0.25, 1],
+            delay: 0.9
+          }}
+        >
           <div className="font-['Inter'] font-normal text-white text-[28px] tracking-wide whitespace-nowrap">
             {timeLeft}s
           </div>
@@ -347,8 +400,8 @@ export const Desktop = (): JSX.Element => {
           >
             restart
           </Button>
-        </footer>
-      </div>
-    </div>
+        </motion.footer>
+      </motion.div>
+    </motion.div>
   );
 };
