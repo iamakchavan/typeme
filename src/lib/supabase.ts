@@ -64,58 +64,36 @@ export const getUserResults = async (userId?: string, limit = 10) => {
 }
 
 export const getLeaderboard = async (testType: 'timed' | 'words' = 'timed', limit = 10, offset = 0) => {
-  // Get best score per user to avoid duplicates
+  // Get ALL typing results (not just best per user) - like before
   const { data: results, error } = await supabase
-    .rpc('get_best_scores_per_user', {
-      test_type_param: testType,
-      limit_param: limit,
-      offset_param: offset
-    })
+    .from('typing_results')
+    .select('*')
+    .eq('test_type', testType)
+    .order('wpm', { ascending: false })
+    .limit(limit)
+    .range(offset, offset + limit - 1)
 
-  if (error) {
-    console.error('RPC failed, using fallback:', error)
-    // Fallback: Get all results and deduplicate in JS
-    const { data: allResults, error: fallbackError } = await supabase
-      .from('typing_results')
-      .select('*')
-      .eq('test_type', testType)
-      .order('wpm', { ascending: false })
+  if (error) throw error
+  if (!results) return []
 
-    if (fallbackError) throw fallbackError
-    if (!allResults) return []
+  // Get profiles for display names
+  const userIds = [...new Set(results.map(r => r.user_id))]
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', userIds)
 
-    // Deduplicate by keeping best score per user
-    const userBestScores = new Map()
-    allResults.forEach(result => {
-      const existing = userBestScores.get(result.user_id)
-      if (!existing || result.wpm > existing.wpm) {
-        userBestScores.set(result.user_id, result)
-      }
-    })
-
-    const deduplicatedResults = Array.from(userBestScores.values())
-      .sort((a, b) => b.wpm - a.wpm)
-      .slice(offset, offset + limit)
-
-    // Get profiles for display names
-    const userIds = [...new Set(deduplicatedResults.map(r => r.user_id))]
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, display_name')
-      .in('id', userIds)
-
-    const profileMap = new Map()
-    if (profiles) {
-      profiles.forEach(p => profileMap.set(p.id, p.display_name))
-    }
-
-    return deduplicatedResults.map(result => ({
-      ...result,
-      profiles: { display_name: profileMap.get(result.user_id) || null }
-    }))
+  // Create lookup map
+  const profileMap = new Map()
+  if (profiles) {
+    profiles.forEach(p => profileMap.set(p.id, p.display_name))
   }
 
-  return results || []
+  // Combine data - show ALL results with display names
+  return results.map(result => ({
+    ...result,
+    profiles: { display_name: profileMap.get(result.user_id) || null }
+  }))
 }
 
 // User profile functions
@@ -145,24 +123,24 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
 // Anonymous session management
 export const getOrCreateAnonymousSession = () => {
   let sessionId = localStorage.getItem('typeme_session_id')
-  
+
   if (!sessionId) {
     sessionId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     localStorage.setItem('typeme_session_id', sessionId)
   }
-  
+
   return sessionId
 }
 
 // Display name management
 export const updateDisplayName = async (userId: string, displayName: string) => {
   const trimmedName = displayName.trim()
-  
+
   // Validate display name length
   if (trimmedName && (trimmedName.length < 1 || trimmedName.length > 30)) {
     throw new Error('Display name must be between 1 and 30 characters')
   }
-  
+
   // First, ensure the profile exists with upsert
   const { error: upsertError } = await supabase
     .from('profiles')
@@ -175,10 +153,10 @@ export const updateDisplayName = async (userId: string, displayName: string) => 
     })
 
   if (upsertError) throw upsertError
-  
+
   // Update local storage as backup
   setDisplayName(trimmedName)
-  
+
   // Return the updated profile
   return getUserProfile(userId)
 }

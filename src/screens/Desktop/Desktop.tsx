@@ -38,6 +38,7 @@ export const Desktop = (): JSX.Element => {
   const [isRestarting, setIsRestarting] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [hasResultSaved, setHasResultSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
@@ -65,8 +66,9 @@ export const Desktop = (): JSX.Element => {
       interval = window.setInterval(() => {
         setTimeLeft((time) => time - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft === 0 && !hasResultSaved) {
       setIsActive(false);
+      setHasResultSaved(true);
       // Save the typing result when test completes
       saveTypingResult();
     }
@@ -191,6 +193,7 @@ export const Desktop = (): JSX.Element => {
     setWpm(0);
     setCorrectChars(0);
     setScrollOffset(0);
+    setHasResultSaved(false); // Reset the save flag
     setTextKey(prev => prev + 1); // Trigger text transition
     setTimeout(() => setIsRestarting(false), 100);
     inputRef.current?.focus();
