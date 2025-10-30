@@ -11,8 +11,12 @@ A clean, minimalist typing speed test application with real-time WPM tracking an
 - 🔊 Audio feedback with toggle option
 - ✨ Smooth animations and transitions
 - 📱 Responsive design
-- ⌨️ 30-second typing test
+- ⌨️ 30-second and 60-second typing tests
 - 🔄 Instant restart functionality
+- 📊 **Personal Statistics** - Track your progress over time
+- 🏆 **Global Leaderboard** - Compete with other typists
+- 💾 **Anonymous Sessions** - No signup required, progress saved locally
+- 📈 **Performance Analytics** - Best WPM, average speed, total tests
 
 ## Tech Stack
 
@@ -22,6 +26,7 @@ A clean, minimalist typing speed test application with real-time WPM tracking an
 - **Framer Motion** for animations
 - **Shadcn UI** components
 - **Lucide React** for icons
+- **Supabase** for database and backend services
 
 ## Getting Started
 
@@ -75,11 +80,29 @@ This project is optimized for **Vercel** deployment:
 
 ### Environment Variables
 
-Copy `.env.example` to `.env.local` and configure as needed:
+Copy `.env.example` to `.env.local` and configure your Supabase credentials:
 
 ```bash
 cp .env.example .env.local
 ```
+
+Required environment variables:
+- `VITE_SUPABASE_URL` - Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Your Supabase anonymous key
+
+## Database Schema
+
+The application uses Supabase with the following tables:
+
+### `typing_results`
+- Stores individual typing test results
+- Tracks WPM, accuracy, test duration, and character counts
+- Links to user sessions (anonymous or authenticated)
+
+### `profiles`
+- User statistics and profile information
+- Automatically calculated stats (best WPM, average, total tests)
+- Updated via database triggers when new results are saved
 
 ## Project Structure
 

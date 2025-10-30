@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/button";
-import { Volume2, VolumeX, Keyboard } from "lucide-react";
+import { Volume2, VolumeX, Keyboard, BarChart3, User } from "lucide-react";
+import { useTypingResults } from "../../hooks/useTypingResults";
+import { TypingStats } from "../../components/TypingStats";
+import { UserSettings } from "../../components/UserSettings";
+import { DebugSupabase } from "../../components/DebugSupabase";
 
 const WORDS = [
   "the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
@@ -33,9 +37,14 @@ export const Desktop = (): JSX.Element => {
   const [scrollOffset, setScrollOffset] = useState(0);
   const [textKey, setTextKey] = useState(0); // Key to trigger text transitions
   const [isRestarting, setIsRestarting] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
+
+  // Supabase integration
+  const { saveResult, userProfile, loadLeaderboard, loadUserProfile } = useTypingResults();
 
   useEffect(() => {
     setText(generateText());
@@ -51,20 +60,45 @@ export const Desktop = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: number | null = null;
 
     if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
+      interval = window.setInterval(() => {
         setTimeLeft((time) => time - 1);
       }, 1000);
     } else if (timeLeft === 0) {
       setIsActive(false);
+      // Save the typing result when test completes
+      saveTypingResult();
     }
 
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) window.clearInterval(interval);
     };
   }, [isActive, timeLeft]);
+
+  // Save typing result to Supabase
+  const saveTypingResult = async () => {
+    if (userInput.length === 0) return;
+
+    try {
+      const accuracy = (correctChars / userInput.length) * 100;
+      const wordsTyped = Math.floor(correctChars / 5); // Standard: 5 characters = 1 word
+
+      await saveResult({
+        wpm,
+        accuracy: Math.round(accuracy * 100) / 100, // Round to 2 decimal places
+        testDuration: timerDuration,
+        charactersTyped: userInput.length,
+        correctCharacters: correctChars,
+        wordsTyped,
+        testType: 'timed'
+      });
+    } catch (error) {
+      console.error('Failed to save typing result:', error);
+      // Don't show error to user, just log it
+    }
+  };
 
   const playKeySound = (type: 'correct' | 'error' | 'backspace') => {
     if (!audioContextRef.current || !isSoundEnabled) return;
@@ -535,30 +569,88 @@ export const Desktop = (): JSX.Element => {
               typeme
             </motion.span>
           </motion.div>
-          <motion.button
-            onClick={() => setIsSoundEnabled(!isSoundEnabled)}
-            className="text-white/50 hover:text-white transition-all duration-300 p-2 rounded-lg"
-            aria-label={isSoundEnabled ? "Mute sound" : "Unmute sound"}
-            initial={{ x: 20, opacity: 0, filter: "blur(4px)" }}
-            animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
-            whileHover={{
-              scale: 1.1,
-              backgroundColor: "rgba(255,255,255,0.05)",
-              filter: "blur(0px) brightness(1.2)"
-            }}
-            whileTap={{ scale: 0.95 }}
-            transition={{
-              duration: 0.3,
-              ease: [0.16, 1, 0.3, 1]
-            }}
-          >
-            <motion.div
-              animate={isSoundEnabled ? {} : { rotate: 180 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          <div className="flex items-center gap-2">
+            <motion.button
+              onClick={() => setShowSettings(true)}
+              className="text-white/50 hover:text-white transition-all duration-300 p-2 rounded-lg relative"
+              aria-label="Profile"
+              initial={{ x: 20, opacity: 0, filter: "blur(4px)" }}
+              animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
+              whileHover={{
+                scale: 1.1,
+                backgroundColor: "rgba(255,255,255,0.05)",
+                filter: "blur(0px) brightness(1.2)"
+              }}
+              whileTap={{ scale: 0.95 }}
+              transition={{
+                duration: 0.3,
+                ease: [0.16, 1, 0.3, 1]
+              }}
             >
-              {isSoundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-            </motion.div>
-          </motion.button>
+              <User size={20} />
+              {userProfile?.display_name && (
+                <motion.div
+                  className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 1 }}
+                />
+              )}
+            </motion.button>
+
+            <motion.button
+              onClick={() => setShowStats(true)}
+              className="text-white/50 hover:text-white transition-all duration-300 p-2 rounded-lg relative"
+              aria-label="View stats"
+              initial={{ x: 20, opacity: 0, filter: "blur(4px)" }}
+              animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
+              whileHover={{
+                scale: 1.1,
+                backgroundColor: "rgba(255,255,255,0.05)",
+                filter: "blur(0px) brightness(1.2)"
+              }}
+              whileTap={{ scale: 0.95 }}
+              transition={{
+                duration: 0.3,
+                ease: [0.16, 1, 0.3, 1]
+              }}
+            >
+              <BarChart3 size={20} />
+              {userProfile && (
+                <motion.div
+                  className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 1 }}
+                />
+              )}
+            </motion.button>
+
+            <motion.button
+              onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+              className="text-white/50 hover:text-white transition-all duration-300 p-2 rounded-lg"
+              aria-label={isSoundEnabled ? "Mute sound" : "Unmute sound"}
+              initial={{ x: 20, opacity: 0, filter: "blur(4px)" }}
+              animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
+              whileHover={{
+                scale: 1.1,
+                backgroundColor: "rgba(255,255,255,0.05)",
+                filter: "blur(0px) brightness(1.2)"
+              }}
+              whileTap={{ scale: 0.95 }}
+              transition={{
+                duration: 0.3,
+                ease: [0.16, 1, 0.3, 1]
+              }}
+            >
+              <motion.div
+                animate={isSoundEnabled ? {} : { rotate: 180 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {isSoundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+              </motion.div>
+            </motion.button>
+          </div>
         </motion.header>
 
         <motion.main
@@ -705,6 +797,21 @@ export const Desktop = (): JSX.Element => {
           </div>
           <div className="font-['Inter'] font-normal text-white text-[28px] tracking-wide whitespace-nowrap">
             {wpm}wpm
+            {userProfile && userProfile.best_wpm > 0 && (
+              <motion.div
+                className="text-[14px] text-white/40 mt-1 space-y-1"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <div>best: {userProfile.best_wpm}</div>
+                {userProfile.display_name && (
+                  <div className="text-[12px] text-white/30">
+                    {userProfile.display_name}
+                  </div>
+                )}
+              </motion.div>
+            )}
           </div>
           <motion.div
             whileHover={{
@@ -746,6 +853,24 @@ export const Desktop = (): JSX.Element => {
           </motion.div>
         </motion.footer>
       </motion.div>
+
+      <AnimatePresence>
+        <TypingStats isVisible={showStats} onClose={() => setShowStats(false)} />
+      </AnimatePresence>
+      
+      <AnimatePresence>
+        <UserSettings 
+          isVisible={showSettings} 
+          onClose={() => setShowSettings(false)}
+          onDisplayNameUpdate={async () => {
+            // Refresh user profile and leaderboard after display name update
+            await loadUserProfile()
+            await loadLeaderboard()
+          }}
+        />
+      </AnimatePresence>
+      
+      <DebugSupabase />
     </motion.div>
   );
 };
