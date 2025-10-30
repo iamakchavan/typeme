@@ -84,12 +84,12 @@ export const useTypingResults = () => {
   }
 
   // Load leaderboard (initial load - resets pagination)
-  const loadLeaderboard = useCallback(async (testType: 'timed' | 'words' = 'timed') => {
+  const loadLeaderboard = useCallback(async (testType: 'timed' | 'words' = 'timed', testDuration?: number) => {
     setLoading(true)
     setError(null)
     
     try {
-      const data = await getLeaderboard(testType, 10, 0)
+      const data = await getLeaderboard(testType, 10, 0, testDuration)
       setLeaderboard(data)
       setLeaderboardOffset(10)
       setHasMoreLeaderboard(data.length === 10)
@@ -103,12 +103,12 @@ export const useTypingResults = () => {
   }, [])
 
   // Load more leaderboard entries (pagination)
-  const loadMoreLeaderboard = useCallback(async (testType: 'timed' | 'words' = 'timed') => {
+  const loadMoreLeaderboard = useCallback(async (testType: 'timed' | 'words' = 'timed', testDuration?: number) => {
     if (!hasMoreLeaderboard || loadingMore || leaderboardOffset >= 50) return
 
     setLoadingMore(true)
     try {
-      const moreData = await getLeaderboard(testType, 10, leaderboardOffset)
+      const moreData = await getLeaderboard(testType, 10, leaderboardOffset, testDuration)
       if (moreData.length > 0) {
         setLeaderboard(prev => [...prev, ...moreData])
         setLeaderboardOffset(prev => prev + 10)

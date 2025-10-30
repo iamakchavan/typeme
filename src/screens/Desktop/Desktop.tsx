@@ -44,11 +44,12 @@ export const Desktop = (): JSX.Element => {
   const textContainerRef = useRef<HTMLDivElement>(null);
 
   // Supabase integration
-  const { saveResult, userProfile, loadLeaderboard, loadUserProfile } = useTypingResults();
+  const { saveResult, userProfile, results, loadLeaderboard, loadUserProfile, loadUserResults } = useTypingResults();
 
   useEffect(() => {
     setText(generateText());
     inputRef.current?.focus();
+    loadUserResults(); // Load user results for duration-specific stats
 
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
 
@@ -58,6 +59,28 @@ export const Desktop = (): JSX.Element => {
       }
     };
   }, []);
+
+  // Get best WPM for current timer duration from profile
+  const getCurrentBestWpm = () => {
+    if (!userProfile) return 0;
+    
+    if (timerDuration === 30) {
+      return userProfile.best_wpm_30s || 0;
+    } else if (timerDuration === 60) {
+      return userProfile.best_wpm_60s || 0;
+    }
+    
+    return userProfile.best_wpm || 0;
+  };
+
+  const currentBestWpm = getCurrentBestWpm();
+
+  // Refresh user results when component mounts or when we need fresh data
+  useEffect(() => {
+    if (results.length === 0) {
+      loadUserResults();
+    }
+  }, [results.length, loadUserResults]);
 
   useEffect(() => {
     let interval: number | null = null;
@@ -810,15 +833,16 @@ export const Desktop = (): JSX.Element => {
             <div className="font-['Space_Grotesk'] font-normal text-white text-[28px] tracking-wide whitespace-nowrap">
               {wpm}wpm
             </div>
-            {userProfile && userProfile.best_wpm > 0 && (
+            {currentBestWpm > 0 && (
               <motion.div
                 className="absolute top-full left-0 text-[14px] text-white/40 space-y-1 font-['Space_Grotesk'] mt-1"
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
+                key={timerDuration} // Re-animate when duration changes
               >
-                <div>best: {userProfile.best_wpm}</div>
-                {userProfile.display_name && (
+                <div>best: {currentBestWpm} ({timerDuration}s)</div>
+                {userProfile?.display_name && (
                   <div className="text-[12px] text-white/30">
                     {userProfile.display_name}
                   </div>

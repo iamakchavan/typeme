@@ -31,6 +31,14 @@ export interface UserProfile {
   best_wpm: number
   average_wpm: number
   total_time_typed: number
+  best_wpm_30s?: number
+  best_wpm_60s?: number
+  average_wpm_30s?: number
+  average_wpm_60s?: number
+  total_tests_30s?: number
+  total_tests_60s?: number
+  total_time_30s?: number
+  total_time_60s?: number
   created_at?: string
   updated_at?: string
 }
@@ -63,15 +71,25 @@ export const getUserResults = async (userId?: string, limit = 10) => {
   return data
 }
 
-export const getLeaderboard = async (testType: 'timed' | 'words' = 'timed', limit = 10, offset = 0) => {
-  // Get ALL typing results (not just best per user) - like before
-  const { data: results, error } = await supabase
+export const getLeaderboard = async (testType: 'timed' | 'words' = 'timed', limit = 10, offset = 0, testDuration?: number) => {
+  console.log('getLeaderboard called with:', { testType, limit, offset, testDuration })
+  
+  // Build query with optional duration filter
+  let query = supabase
     .from('typing_results')
     .select('*')
     .eq('test_type', testType)
     .order('wpm', { ascending: false })
     .limit(limit)
     .range(offset, offset + limit - 1)
+
+  // Add duration filter if specified
+  if (testDuration) {
+    console.log('Adding duration filter:', testDuration)
+    query = query.eq('test_duration', testDuration)
+  }
+
+  const { data: results, error } = await query
 
   if (error) throw error
   if (!results) return []
