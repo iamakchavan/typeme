@@ -5,7 +5,6 @@ import { Volume2, VolumeX, Keyboard, BarChart3, User } from "lucide-react";
 import { useTypingResults } from "../../hooks/useTypingResults";
 import { TypingStats } from "../../components/TypingStats";
 import { UserSettings } from "../../components/UserSettings";
-import { DebugSupabase } from "../../components/DebugSupabase";
 
 const WORDS = [
   "the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
@@ -869,8 +868,6 @@ export const Desktop = (): JSX.Element => {
           }}
         />
       </AnimatePresence>
-      
-      <DebugSupabase />
     </motion.div>
   );
 };
