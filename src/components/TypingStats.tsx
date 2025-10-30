@@ -45,7 +45,7 @@ export const TypingStats: React.FC<TypingStatsProps> = ({ isVisible, onClose }) 
       onClick={onClose}
     >
       <motion.div
-        className="bg-black border border-white/10 rounded-lg max-w-4xl w-full max-h-[85vh] overflow-hidden"
+        className="bg-black border border-white/10 rounded-lg max-w-4xl w-full max-h-[85vh] overflow-hidden font-['Space_Grotesk']"
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -72,7 +72,7 @@ export const TypingStats: React.FC<TypingStatsProps> = ({ isVisible, onClose }) 
           </Button>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(85vh-80px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(85vh-80px)] minimal-scrollbar">
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-md p-4 mb-6">
               <div className="text-red-400 text-sm">Error: {error}</div>
@@ -146,7 +146,7 @@ export const TypingStats: React.FC<TypingStatsProps> = ({ isVisible, onClose }) 
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="max-h-80 overflow-y-auto space-y-1">
+                  <div className="max-h-80 overflow-y-auto space-y-1 minimal-scrollbar">
                     {leaderboard.length > 0 ? (
                       leaderboard.map((result, index) => {
                         const displayName = (result as any).profiles?.display_name || 'Anonymous User'

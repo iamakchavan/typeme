@@ -143,6 +143,11 @@ export const Desktop = (): JSX.Element => {
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
 
+    // Prevent typing when timer is at 0
+    if (timeLeft === 0) {
+      return;
+    }
+
     if (value.length > userInput.length) {
       const lastCharIndex = value.length - 1;
       const isCorrect = value[lastCharIndex] === text[lastCharIndex];
@@ -520,7 +525,7 @@ export const Desktop = (): JSX.Element => {
         }}
       >
         <motion.header
-          className="flex items-center justify-between font-['Inter'] font-normal text-white text-3xl tracking-wide"
+          className="flex items-center justify-between font-['Space_Grotesk'] font-normal text-white text-3xl tracking-wide"
           initial={{
             y: -30,
             opacity: 0,
@@ -707,7 +712,11 @@ export const Desktop = (): JSX.Element => {
             type="text"
             value={userInput}
             onChange={handleInput}
-            disabled={timeLeft === 0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && timeLeft === 0) {
+                handleRestart();
+              }
+            }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-default"
             autoComplete="off"
             autoCorrect="off"
@@ -717,7 +726,7 @@ export const Desktop = (): JSX.Element => {
         </motion.main>
 
         <motion.footer
-          className="flex items-center gap-12"
+          className="flex items-baseline gap-12"
           initial={{
             y: 30,
             opacity: 0,
@@ -742,7 +751,7 @@ export const Desktop = (): JSX.Element => {
               onMouseEnter={() => setIsTimerHovered(true)}
               onMouseLeave={() => setIsTimerHovered(false)}
               disabled={isActive}
-              className={`font-['Inter'] font-normal text-[28px] tracking-wide whitespace-nowrap transition-colors duration-200 ${isActive
+              className={`font-['Space_Grotesk'] font-normal text-[28px] tracking-wide whitespace-nowrap transition-colors duration-200 ${isActive
                 ? 'text-white cursor-default'
                 : 'text-white hover:text-white/80 cursor-pointer'
                 }`}
@@ -792,16 +801,18 @@ export const Desktop = (): JSX.Element => {
                 ease: [0.16, 1, 0.3, 1]
               }}
             >
-              <div className="font-['Inter'] font-normal text-white/60 text-[20px] tracking-wide whitespace-nowrap">
+              <div className="font-['Space_Grotesk'] font-normal text-white/60 text-[20px] tracking-wide whitespace-nowrap">
                 {timerDuration === 30 ? '60s' : '30s'}
               </div>
             </motion.div>
           </div>
-          <div className="font-['Inter'] font-normal text-white text-[28px] tracking-wide whitespace-nowrap">
-            {wpm}wpm
+          <div className="relative">
+            <div className="font-['Space_Grotesk'] font-normal text-white text-[28px] tracking-wide whitespace-nowrap">
+              {wpm}wpm
+            </div>
             {userProfile && userProfile.best_wpm > 0 && (
               <motion.div
-                className="text-[14px] text-white/40 mt-1 space-y-1"
+                className="absolute top-full left-0 text-[14px] text-white/40 space-y-1 font-['Space_Grotesk'] mt-1"
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
@@ -832,7 +843,7 @@ export const Desktop = (): JSX.Element => {
             <Button
               variant="ghost"
               onClick={handleRestart}
-              className={`font-['Inter'] font-normal text-[28px] tracking-wide whitespace-nowrap h-auto p-0 hover:bg-transparent transition-colors duration-300 ${timeLeft === 0 ? 'text-green-500 hover:text-green-400' : 'text-white hover:text-white/90'
+              className={`font-['Space_Grotesk'] font-normal text-[28px] tracking-wide whitespace-nowrap h-auto p-0 hover:bg-transparent transition-colors duration-300 ${timeLeft === 0 ? 'text-green-500 hover:text-green-400' : 'text-white hover:text-white/90'
                 }`}
             >
               <motion.span
