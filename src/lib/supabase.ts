@@ -64,36 +64,58 @@ export const getUserResults = async (userId?: string, limit = 10) => {
 }
 
 export const getLeaderboard = async (testType: 'timed' | 'words' = 'timed', limit = 10, offset = 0) => {
-  // Get typing results
+  // Get best score per user to avoid duplicates
   const { data: results, error } = await supabase
-    .from('typing_results')
-    .select('*')
-    .eq('test_type', testType)
-    .order('wpm', { ascending: false })
-    .limit(limit)
-    .range(offset, offset + limit - 1)
+    .rpc('get_best_scores_per_user', {
+      test_type_param: testType,
+      limit_param: limit,
+      offset_param: offset
+    })
 
-  if (error) throw error
-  if (!results) return []
+  if (error) {
+    console.error('RPC failed, using fallback:', error)
+    // Fallback: Get all results and deduplicate in JS
+    const { data: allResults, error: fallbackError } = await supabase
+      .from('typing_results')
+      .select('*')
+      .eq('test_type', testType)
+      .order('wpm', { ascending: false })
 
-  // Get profiles for display names (simple approach)
-  const userIds = [...new Set(results.map(r => r.user_id))]
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, display_name')
-    .in('id', userIds)
+    if (fallbackError) throw fallbackError
+    if (!allResults) return []
 
-  // Create lookup map
-  const profileMap = new Map()
-  if (profiles) {
-    profiles.forEach(p => profileMap.set(p.id, p.display_name))
+    // Deduplicate by keeping best score per user
+    const userBestScores = new Map()
+    allResults.forEach(result => {
+      const existing = userBestScores.get(result.user_id)
+      if (!existing || result.wpm > existing.wpm) {
+        userBestScores.set(result.user_id, result)
+      }
+    })
+
+    const deduplicatedResults = Array.from(userBestScores.values())
+      .sort((a, b) => b.wpm - a.wpm)
+      .slice(offset, offset + limit)
+
+    // Get profiles for display names
+    const userIds = [...new Set(deduplicatedResults.map(r => r.user_id))]
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', userIds)
+
+    const profileMap = new Map()
+    if (profiles) {
+      profiles.forEach(p => profileMap.set(p.id, p.display_name))
+    }
+
+    return deduplicatedResults.map(result => ({
+      ...result,
+      profiles: { display_name: profileMap.get(result.user_id) || null }
+    }))
   }
 
-  // Combine data
-  return results.map(result => ({
-    ...result,
-    profiles: { display_name: profileMap.get(result.user_id) || null }
-  }))
+  return results || []
 }
 
 // User profile functions
