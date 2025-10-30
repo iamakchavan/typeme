@@ -24,12 +24,16 @@ export const Desktop = (): JSX.Element => {
   const [text, setText] = useState("");
   const [userInput, setUserInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(30);
+  const [timerDuration, setTimerDuration] = useState(30);
   const [isActive, setIsActive] = useState(false);
   const [wpm, setWpm] = useState(0);
   const [correctChars, setCorrectChars] = useState(0);
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const [isTimerHovered, setIsTimerHovered] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setText(generateText());
@@ -123,30 +127,127 @@ export const Desktop = (): JSX.Element => {
       setIsActive(true);
     }
 
+    // Check if we need to generate more text (when user is near the end and timer is still running)
+    if (isActive && timeLeft > 0 && value.length >= text.length - 20) {
+      const additionalText = generateText(30);
+      setText(prevText => prevText + " " + additionalText);
+    }
+
     setUserInput(value);
   };
 
   useEffect(() => {
     if (isActive && timeLeft > 0) {
-      const elapsedMinutes = (30 - timeLeft) / 60;
+      const elapsedMinutes = (timerDuration - timeLeft) / 60;
       if (elapsedMinutes > 0) {
         const calculatedWpm = Math.round((correctChars / 5) / elapsedMinutes);
         setWpm(calculatedWpm);
       }
     }
-  }, [correctChars, timeLeft, isActive]);
+  }, [correctChars, timeLeft, isActive, timerDuration]);
 
   const handleRestart = () => {
     setText(generateText());
     setUserInput("");
-    setTimeLeft(30);
+    setTimeLeft(timerDuration);
     setIsActive(false);
     setWpm(0);
     setCorrectChars(0);
+    setScrollOffset(0);
     inputRef.current?.focus();
   };
 
-  const renderText = () => {
+  const handleTimerClick = () => {
+    if (!isActive) {
+      const newDuration = timerDuration === 30 ? 60 : 30;
+      setTimerDuration(newDuration);
+      setTimeLeft(newDuration);
+    }
+  };
+
+  // Break text into lines and create character mapping
+  const getTextLinesWithMapping = () => {
+    if (!textContainerRef.current) return { lines: [], charToLineMap: [] };
+    
+    const containerWidth = textContainerRef.current.offsetWidth;
+    const charWidth = 16.8; // Approximate width of Inter font at 28px
+    const charsPerLine = Math.floor(containerWidth / charWidth);
+    
+    const lines: string[] = [];
+    const charToLineMap: number[] = []; // Maps each character index to its line number
+    const words = text.split(' ');
+    let currentLine = '';
+    let currentLineIndex = 0;
+    let globalCharIndex = 0;
+    
+    for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
+      const word = words[wordIndex];
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      
+      if (testLine.length <= charsPerLine) {
+        // Add space character mapping if not first word in line
+        if (currentLine) {
+          charToLineMap[globalCharIndex] = currentLineIndex;
+          globalCharIndex++; // for the space
+        }
+        
+        // Add word character mappings
+        for (let i = 0; i < word.length; i++) {
+          charToLineMap[globalCharIndex] = currentLineIndex;
+          globalCharIndex++;
+        }
+        
+        currentLine = testLine;
+      } else {
+        // Line is full, start new line
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLineIndex++;
+        }
+        
+        // Add word character mappings to new line
+        for (let i = 0; i < word.length; i++) {
+          charToLineMap[globalCharIndex] = currentLineIndex;
+          globalCharIndex++;
+        }
+        
+        currentLine = word;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return { lines, charToLineMap };
+  };
+
+  // Calculate which line the cursor is on
+  const getCurrentLineIndex = () => {
+    const { charToLineMap } = getTextLinesWithMapping();
+    const cursorPosition = Math.min(userInput.length, charToLineMap.length - 1);
+    return charToLineMap[cursorPosition] || 0;
+  };
+
+  // Update scroll offset when cursor moves to new lines - trigger earlier
+  useEffect(() => {
+    const currentLineIndex = getCurrentLineIndex();
+    const maxVisibleLines = 3;
+    
+    // Trigger scroll when cursor reaches the 3rd line (index 2) instead of waiting for 4th line
+    if (currentLineIndex >= maxVisibleLines - 1) {
+      const newOffset = Math.max(0, currentLineIndex - maxVisibleLines + 2);
+      if (newOffset !== scrollOffset) {
+        setScrollOffset(newOffset);
+      }
+    }
+  }, [userInput, text, scrollOffset]);
+
+  const renderScrollingText = () => {
+    const { lines } = getTextLinesWithMapping();
+    const maxVisibleLines = 3;
+    const visibleLines = lines.slice(scrollOffset, scrollOffset + maxVisibleLines);
+    
     const cursorElement = (
       <motion.span
         layoutId="cursor"
@@ -157,14 +258,6 @@ export const Desktop = (): JSX.Element => {
           y: [0.5, 0, 0.5]
         }}
         transition={{
-          layout: {
-            type: "spring",
-            stiffness: 400,
-            damping: 35,
-            mass: 0.5,
-            restDelta: 0.001,
-            restSpeed: 0.001
-          },
           opacity: {
             duration: 1.2,
             repeat: Infinity,
@@ -184,116 +277,104 @@ export const Desktop = (): JSX.Element => {
       />
     );
 
-    const elements: JSX.Element[] = [];
-    let wordChars: JSX.Element[] = [];
-    let wordKey = 0;
-
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-
-      if (i === userInput.length) {
-        wordChars.push(<span key="cursor">{cursorElement}</span>);
-      }
-
-      if (char === " ") {
-        let spaceClassName = "text-[#4e4e4e]";
-        let isCorrect = false;
-        if (i < userInput.length) {
-          if (userInput[i] === " ") {
-            spaceClassName = "text-white";
-            isCorrect = true;
-          } else {
-            spaceClassName = "text-red-500";
-          }
-        }
-
-        const isError = i < userInput.length && userInput[i] !== " ";
-        const spaceElement = (
-          <span key={i} className="inline-block min-w-[0.5ch]">
-            <motion.span
-              className={spaceClassName}
-              animate={isCorrect ? {
-                textShadow: [
-                  "0 0 0px rgba(255,255,255,0)",
-                  "0 0 12px rgba(255,255,255,0.8)",
-                  "0 0 0px rgba(255,255,255,0)"
-                ]
-              } : {}}
-              style={isError ? {
-                textShadow: "0 0 8px rgba(239, 68, 68, 0.7)"
-              } : {}}
-              transition={{
-                duration: 0.6,
-                ease: [0.45, 0.05, 0.55, 0.95]
+    return (
+      <motion.div
+        key={scrollOffset}
+        initial={{ y: 15, opacity: 0.7 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ 
+          duration: 0.3,
+          ease: [0.25, 0.1, 0.25, 1]
+        }}
+      >
+        {visibleLines.map((line, lineIndex) => {
+          const actualLineIndex = scrollOffset + lineIndex;
+          
+          const renderLine = () => {
+            const elements: JSX.Element[] = [];
+            let globalCharIndex = 0;
+            
+            // Calculate the global character index for this line
+            for (let i = 0; i < actualLineIndex; i++) {
+              globalCharIndex += lines[i].length;
+              if (i < lines.length - 1) globalCharIndex++; // Add space between lines
+            }
+            
+            // Render each character in the line
+            for (let charIndex = 0; charIndex < line.length; charIndex++) {
+              const char = line[charIndex];
+              const currentGlobalIndex = globalCharIndex + charIndex;
+              
+              // Add cursor if it's at this position
+              if (currentGlobalIndex === userInput.length) {
+                elements.push(<span key={`cursor-${currentGlobalIndex}`}>{cursorElement}</span>);
+              }
+              
+              let className = "text-[#4e4e4e]";
+              let isCorrect = false;
+              let isError = false;
+              
+              if (currentGlobalIndex < userInput.length) {
+                if (userInput[currentGlobalIndex] === char) {
+                  className = "text-white";
+                  isCorrect = true;
+                } else {
+                  className = "text-red-500";
+                  isError = true;
+                }
+              }
+              
+              elements.push(
+                <motion.span
+                  key={currentGlobalIndex}
+                  className={className}
+                  animate={isCorrect ? {
+                    textShadow: [
+                      "0 0 0px rgba(255,255,255,0)",
+                      "0 0 12px rgba(255,255,255,0.8)",
+                      "0 0 0px rgba(255,255,255,0)"
+                    ]
+                  } : {}}
+                  style={isError ? {
+                    textShadow: "0 0 8px rgba(239, 68, 68, 0.7)"
+                  } : {}}
+                  transition={{
+                    duration: 0.6,
+                    ease: [0.45, 0.05, 0.55, 0.95]
+                  }}
+                >
+                  {char}
+                </motion.span>
+              );
+            }
+            
+            // Add cursor at end of line if needed (for spaces between lines)
+            const lineEndIndex = globalCharIndex + line.length;
+            if (lineEndIndex === userInput.length && actualLineIndex < lines.length - 1) {
+              elements.push(<span key={`cursor-end-${lineEndIndex}`}>{cursorElement}</span>);
+            }
+            
+            return elements;
+          };
+          
+          return (
+            <motion.div
+              key={`line-${actualLineIndex}`}
+              className="leading-[42px]"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ 
+                duration: 0.25,
+                delay: lineIndex * 0.03,
+                ease: [0.25, 0.1, 0.25, 1]
               }}
             >
-              {" "}
-            </motion.span>
-          </span>
-        );
-
-        wordChars.push(spaceElement);
-
-        if (wordChars.length > 0) {
-          elements.push(
-            <span key={`word-${wordKey}`} className="whitespace-nowrap inline-block">
-              {wordChars}
-            </span>
+              {renderLine()}
+            </motion.div>
           );
-          wordChars = [];
-          wordKey = i + 1;
-        }
-      } else {
-        let className = "text-[#4e4e4e]";
-        let isCorrect = false;
-        let isError = false;
-        if (i < userInput.length) {
-          if (userInput[i] === char) {
-            className = "text-white";
-            isCorrect = true;
-          } else {
-            className = "text-red-500";
-            isError = true;
-          }
-        }
-
-        const charElement = (
-          <span key={i} className="inline-block">
-            <motion.span
-              className={className}
-              animate={isCorrect ? {
-                textShadow: [
-                  "0 0 0px rgba(255,255,255,0)",
-                  "0 0 12px rgba(255,255,255,0.8)",
-                  "0 0 0px rgba(255,255,255,0)"
-                ]
-              } : {}}
-              style={isError ? {
-                textShadow: "0 0 8px rgba(239, 68, 68, 0.7)"
-              } : {}}
-              transition={{
-                duration: 0.6,
-                ease: [0.45, 0.05, 0.55, 0.95]
-              }}
-            >
-              {char}
-            </motion.span>
-          </span>
-        );
-
-        wordChars.push(charElement);
-      }
-    }
-
-    if (wordChars.length > 0) {
-      elements.push(
-        <span key={`word-${wordKey}`} className="whitespace-nowrap inline-block">
-          {wordChars}
-        </span>
-      );
-    }
-
-    return elements;
+        })}
+      </motion.div>
+    );
   };
 
   return (
@@ -349,7 +430,7 @@ export const Desktop = (): JSX.Element => {
         </motion.header>
 
         <motion.main 
-          className="relative font-['Inter'] font-normal text-[28px] tracking-wide leading-[42px] select-none"
+          className="relative font-['Inter'] font-normal text-[28px] tracking-wide select-none"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ 
@@ -358,8 +439,12 @@ export const Desktop = (): JSX.Element => {
             delay: 0.7
           }}
         >
-          <div className="overflow-hidden text-left">
-            {renderText()}
+          <div 
+            ref={textContainerRef}
+            className="overflow-hidden text-left h-[126px] relative" // Fixed height for 3 lines (42px * 3)
+            style={{ maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)' }}
+          >
+            {renderScrollingText()}
           </div>
           <input
             ref={inputRef}
@@ -385,8 +470,51 @@ export const Desktop = (): JSX.Element => {
             delay: 0.9
           }}
         >
-          <div className="font-['Inter'] font-normal text-white text-[28px] tracking-wide whitespace-nowrap">
-            {timeLeft}s
+          <div className="relative">
+            <motion.button
+              onClick={handleTimerClick}
+              onMouseEnter={() => setIsTimerHovered(true)}
+              onMouseLeave={() => setIsTimerHovered(false)}
+              disabled={isActive}
+              className={`font-['Inter'] font-normal text-[28px] tracking-wide whitespace-nowrap transition-colors duration-200 ${
+                isActive 
+                  ? 'text-white cursor-default' 
+                  : 'text-white hover:text-white/80 cursor-pointer'
+              }`}
+              whileHover={!isActive ? { scale: 1.02 } : {}}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.span
+                key={timerDuration}
+                initial={{ opacity: 0, filter: "blur(4px)", y: -5 }}
+                animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                transition={{ 
+                  duration: 0.4,
+                  ease: [0.25, 0.1, 0.25, 1]
+                }}
+              >
+                {timeLeft}s
+              </motion.span>
+            </motion.button>
+            
+            {/* Hover dropdown */}
+            <motion.div
+              className="absolute top-full left-0 mt-2 pointer-events-none"
+              initial={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+              animate={{ 
+                opacity: isTimerHovered && !isActive ? 1 : 0,
+                y: isTimerHovered && !isActive ? 0 : -10,
+                filter: isTimerHovered && !isActive ? "blur(0px)" : "blur(4px)"
+              }}
+              transition={{ 
+                duration: 0.3,
+                ease: [0.25, 0.1, 0.25, 1]
+              }}
+            >
+              <div className="font-['Inter'] font-normal text-white/60 text-[20px] tracking-wide whitespace-nowrap">
+                {timerDuration === 30 ? '60s' : '30s'}
+              </div>
+            </motion.div>
           </div>
           <div className="font-['Inter'] font-normal text-white text-[28px] tracking-wide whitespace-nowrap">
             {wpm}wpm
